@@ -1,0 +1,45 @@
+group 'com.zz'
+version '1.0'
+
+apply plugin: "java"
+apply plugin: "spring-boot"
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    jcenter()
+}
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:1.4.1.RELEASE")
+        classpath 'org.springframework:springloaded:1.2.5.RELEASE'
+    }
+}
+
+apply plugin: 'idea'
+idea {
+    module {
+        inheritOutputDirs = false
+        outputDir = file("$buildDir/classes/main/")
+        testOutputDir = file("$buildDir/classes/test/")
+    }
+}
+
+jar {
+    baseName = "zookeeper-ui"
+    version = "1.0"
+}
+
+dependencies {
+    compile("org.springframework.boot:spring-boot-starter-web")
+    compile("org.springframework.boot:spring-boot-devtools")
+    compile 'org.apache.curator:curator-recipes:3.2.0'
+    //compile 'org.apache.curator:curator-client:3.2.0'
+    //compile 'org.apache.curator:curator-framework:3.2.0'
+    testCompile("org.springframework.boot:spring-boot-starter-test")
+}

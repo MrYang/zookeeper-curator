@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <script type="text/javascript" src="/vue.min.js"></script>
+  <script type="text/javascript" src="/jquery.min.js"></script>
+  <script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+  <title>zookeeper-ui</title>
+</head>
+<body>
+  <div id="vue">
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+        <tr>
+          <th>序号</th>
+          <th>节点</th>
+          <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="p in paths">
+          <td>{{ $index + 1}}</td>
+          <td>{{p}}</td>
+          <td>
+            <button class="btn btn-default btn-xs" @click="get(p)">查看</button>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+<script type="text/javascript">
+appVue = new Vue ({
+  el: '#vue',
+  data: {
+    paths:[],
+    node: {
+      path: '',
+      stat: {}
+    }
+  },
+
+  ready: function(){
+    this.list();
+  },
+
+  methods: {
+    list: function(){
+      $.get('/list', function(response){
+        appVue.paths = response;
+      });
+    },
+    get: function(p) {
+      this.node.path = p;
+      $.get('/get?path=' + this.node.path, function(response){
+        appVue.node.stat = response;
+      });
+    }
+  }
+})
+</script>
+</html>
