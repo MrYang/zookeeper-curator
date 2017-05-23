@@ -9,33 +9,107 @@
   <title>zookeeper-ui</title>
 </head>
 <body>
-  <div id="vue">
-    <div class="table-responsive">
-      <table class="table table-hover">
-        <thead>
-        <tr>
-          <th>序号</th>
-          <th>节点</th>
-          <th>操作</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="p in paths">
-          <td>{{ $index + 1}}</td>
-          <td>{{p}}</td>
-          <td>
-            <button class="btn btn-default btn-xs" @click="get(p)">查看</button>
-          </td>
-        </tr>
-        </tbody>
-      </table>
+  <div id="vue" class="container">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="input-group">
+          <input type="text" class="form-control" v-model="search.path" readonly>
+          <span class="input-group-btn">
+            <button class="btn btn-default" type="button" @click="goBack">上一级</button>
+            <button class="btn btn-default" type="button" @click="goRoot">回到根节点</button>
+          </span>
+        </div>
+      </div>
     </div>
+    <div class="row">
+      <div class="col-md-8">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+            <tr>
+              <th>节点</th>
+              <th>操作</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="p in paths">
+              <td><span @click="listChildren(p)" style="cursor: pointer">{{p}}</span></td>
+              <td>
+                <button class="btn btn-default btn-xs" @click="get(p)">查看</button>
+                <button class="btn btn-default btn-xs" @click="edit(p)">编辑</button>
+                <button class="btn btn-default btn-xs" @click="del(p)">删除</button>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <table class="table table-hover">
+          <tr>
+            <th>项</th>
+            <th>值</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td>创建zxid</td>
+            <td>{{node.stat.czxid}}</td>
+          </tr>
+          <tr>
+            <td>更新zxid</td>
+            <td>{{node.stat.mzxid}}</td>
+          </tr>
+          <tr>
+            <td>子节点pzxid</td>
+            <td>{{node.stat.pzxid}}</td>
+          </tr>
+          <tr>
+            <td>创建时间戳</td>
+            <td>{{node.stat.ctime}}</td>
+          </tr>
+          <tr>
+            <td>更新时间戳</td>
+            <td>{{node.stat.mtime}}</td>
+          </tr>
+          <tr>
+            <td>节点数据的更新次数</td>
+            <td>{{node.stat.version}}</td>
+          </tr>
+          <tr>
+            <td>子节点的更新次数</td>
+            <td>{{node.stat.cversion}}</td>
+          </tr>
+          <tr>
+            <td>ACL(授权信息)的更新次数</td>
+            <td>{{node.stat.aversion}}</td>
+          </tr>
+          <tr>
+            <td>ephemeralOwner</td>
+            <td>{{node.stat.ephemeralOwner}}</td>
+          </tr>
+          <tr>
+            <td>节点数据的字节数</td>
+            <td>{{node.stat.dataLength}}</td>
+          </tr>
+          <tr>
+            <td>子节点个数</td>
+            <td>{{node.stat.numChildren}}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </body>
 <script type="text/javascript">
 appVue = new Vue ({
   el: '#vue',
   data: {
+    search:{
+      path:''
+    },
     paths:[],
     node: {
       path: '',
@@ -49,13 +123,55 @@ appVue = new Vue ({
 
   methods: {
     list: function(){
-      $.get('/list', function(response){
+      var p = this.search.path;
+      $.get('/list?path=' + p, function(response){
+        appVue.paths = response;
+      });
+    },
+    goBack: function () {
+      if (this.search.path == '' || this.search.path == '/') {
+        this.search.path = '/';
+      } else {
+        this.search.path = this.search.path.substring(0, this.search.path.lastIndexOf('/'))
+        if (this.search.path == '') {
+          this.search.path = '/';
+        }
+      }
+      this.list();
+    },
+    goRoot: function () {
+      this.search.path = '/';
+      this.list();
+    },
+    listChildren: function (p) {
+      this.node.stat = {};
+      if (this.search.path == '/') {
+        this.search.path = '/' + p;
+      } else if (this.search.path.charAt(0) == '/') {
+        this.search.path = this.search.path + '/' + p;
+      } else {
+        this.search.path = '/' + p;
+      }
+      $.get('/list?path=' + this.search.path, function(response){
         appVue.paths = response;
       });
     },
     get: function(p) {
-      this.node.path = p;
+      if (this.search.path == '' || this.search.path == '/') {
+        this.node.path = '/' + p;
+      } else {
+        this.node.path = this.search.path + '/' + p;
+      }
       $.get('/get?path=' + this.node.path, function(response){
+        appVue.node.stat = response;
+      });
+    },
+    edit: function(p) {
+
+    },
+    del: function(p) {
+      this.node.path = this.search.path + '/' + p;
+      $.get('/del?path=' + this.node.path, function(response){
         appVue.node.stat = response;
       });
     }

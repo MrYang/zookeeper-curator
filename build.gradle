@@ -17,10 +17,11 @@ buildscript {
     }
     dependencies {
         classpath("org.springframework.boot:spring-boot-gradle-plugin:1.4.1.RELEASE")
-        classpath 'org.springframework:springloaded:1.2.5.RELEASE'
+        //classpath 'org.springframework:springloaded:1.2.5.RELEASE'
     }
 }
 
+/*
 apply plugin: 'idea'
 idea {
     module {
@@ -29,6 +30,7 @@ idea {
         testOutputDir = file("$buildDir/classes/test/")
     }
 }
+*/
 
 jar {
     baseName = "zookeeper-ui"
@@ -39,6 +41,8 @@ dependencies {
     compile("org.springframework.boot:spring-boot-starter-web")
     compile("org.springframework.boot:spring-boot-devtools")
     compile 'org.apache.curator:curator-recipes:3.2.0'
+    compile 'io.dropwizard.metrics:metrics-core:3.2.2'
+    compile 'io.dropwizard.metrics:metrics-annotation:3.2.2'
     //compile 'org.apache.curator:curator-client:3.2.0'
     //compile 'org.apache.curator:curator-framework:3.2.0'
     testCompile("org.springframework.boot:spring-boot-starter-test")

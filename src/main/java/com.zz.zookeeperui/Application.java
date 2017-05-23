@@ -1,161 +1,64 @@
 package com.zz.zookeeperui;
 
+import org.apache.curator.RetryPolicy;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.api.CuratorListener;
+import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.api.CuratorWatcher;
-import org.apache.curator.framework.recipes.cache.NodeCache;
-import org.apache.curator.framework.recipes.leader.LeaderSelector;
-import org.apache.curator.framework.recipes.leader.LeaderSelectorListener;
-import org.apache.curator.framework.recipes.leader.LeaderSelectorListenerAdapter;
-import org.apache.curator.framework.recipes.locks.InterProcessMutex;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.data.Stat;
+import org.apache.curator.framework.recipes.cache.ChildData;
+import org.apache.curator.framework.recipes.cache.PathChildrenCache;
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+import org.apache.zookeeper.WatchedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-
-import javax.annotation.Resource;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
+import org.springframework.context.annotation.Bean;
 
 @SpringBootApplication
-@Controller
 public class Application {
 
-    @Resource
-    private CuratorFramework client;
-
-    @Resource
-    private CuratorWatcher curatorWatcher;
-
     private Logger logger = LoggerFactory.getLogger(Application.class);
+
+    @Value("${zookeeper.url}")
+    private String zkUrl;
+
+    @Bean
+    public CuratorFramework client() throws Exception {
+        RetryPolicy retryPolicy = new ExponentialBackoffRetry(1000, 3);
+        CuratorFramework client = CuratorFrameworkFactory.newClient(zkUrl, retryPolicy);
+        client.start();
+        /*
+            Path Cache：监视一个路径下1）孩子结点的创建、2）删除，3）以及结点数据的更新。产生的事件会传递给注册的PathChildrenCacheListener。
+            Node Cache：监视一个结点的创建、更新、删除，并将结点的数据缓存在本地。
+            Tree Cache：Path Cache和Node Cache的“合体”，监视路径下的创建、更新、删除事件，并缓存路径下所有孩子结点的数据
+        */
+        PathChildrenCache watcher = new PathChildrenCache(client, "/zookeeper", true);
+        watcher.getListenable().addListener((CuratorFramework client1, PathChildrenCacheEvent event) -> {
+            ChildData data = event.getData();
+            if (data == null) {
+                logger.info("No data in event[" + event + "]");
+            } else {
+                logger.info("Receive event: "
+                        + "type=[" + event.getType() + "]"
+                        + ", path=[" + data.getPath() + "]"
+                        + ", data=[" + new String(data.getData()) + "]"
+                        + ", stat=[" + data.getStat() + "]");
+            }
+        });
+        watcher.start(PathChildrenCache.StartMode.BUILD_INITIAL_CACHE);
+        return client;
+    }
+
+    @Bean
+    public CuratorWatcher defaultCuratorWatcher() {
+        return (WatchedEvent event) -> logger.info("type:" + event.getType() + ",path:" + event.getPath());
+    }
 
     public static void main(String[] args) throws Exception {
         SpringApplication app = new SpringApplication(Application.class);
         app.run(args);
     }
 
-    @RequestMapping("/")
-    public String ui() {
-        return "index.html";
-    }
-
-    @ResponseBody
-    @RequestMapping("/list")
-    public List<String> list() throws Exception {
-        List<String> paths = new ArrayList<>();
-        recursion("/", paths);
-        return paths;
-    }
-
-    private List<String> recursion(String path, List<String> paths) throws Exception {
-        List<String> addPaths = client.getChildren().forPath(path);
-
-        addPaths.forEach(p -> paths.add(path.equals("/") ? "/" + p : path + "/" + p));
-        for (String p : addPaths) {
-            String ap = path.equals("/") ? "/" + p : path + "/" + p;
-            recursion(ap, paths);
-        }
-        return paths;
-    }
-
-    @ResponseBody
-    @RequestMapping("/get")
-    public Stat get(String path) throws Exception {
-        NodeCache nodeCache = new NodeCache(client, path);
-        nodeCache.start(true);
-        return nodeCache.getCurrentData().getStat();
-    }
-
-    public String create(String path, String data) throws Exception {
-        return client.create().forPath(path, data.getBytes());
-    }
-
-    public String createEphemeral(String path, String data) throws Exception {
-        return client.create().withMode(CreateMode.EPHEMERAL).forPath(path, data.getBytes());
-    }
-
-    public String createEphemeralSequential(String path, String data) throws Exception {
-        return client.create().withProtection().withMode(CreateMode.EPHEMERAL_SEQUENTIAL).forPath(path, data.getBytes());
-    }
-
-    /*
-        Stat数据结构为:
-        ZooKeeper状态的每一次改变, 都对应着一个递增的Transaction id, 该id称为zxid. 由于zxid的递增性质,
-        如果zxid1小于zxid2, 那么zxid1肯定先于zxid2发生. 创建任意节点, 或者更新任意节点的数据, 或者删除任意节点,
-        都会导致Zookeeper状态发生改变, 从而导致zxid的值增加
-        节点类型:persistent,ephemeral,sequence
-        persistent节点不和特定的session绑定, 不会随着创建该节点的session的结束而消失, 而是一直存在, 除非该节点被显式删除
-        ephemeral节点是临时性的, 如果创建该节点的session结束了, 该节点就会被自动删除. ephemeral节点不能拥有子节点.
-        sequence节点既可以是ephemeral的, 也可以是persistent的. 创建sequence节点时, ZooKeeper server会在指定的节点名称后加上一个数字序列,
-        该数字序列是递增的. 因此可以多次创建相同的sequence节点, 而得到不同的节点
-
-        czxid. 节点创建时的zxid；
-        mzxid. 节点最新一次更新发生时的zxid；
-        ctime. 节点创建时的时间戳；
-        mtime. 节点最新一次更新发生时的时间戳；
-        dataVersion. 节点数据的更新次数；
-        cversion. 其子节点的更新次数；
-        aclVersion. 节点ACL(授权信息)的更新次数；
-        ephemeralOwner. 如果该节点为ephemeral节点, ephemeralOwner值表示与该节点绑定的session id. 如果该节点不是ephemeral节点, ephemeralOwner值为0.
-        dataLength. 节点数据的字节数；
-        numChildren. 子节点个数；
-     */
-    public Stat set(String path, String newData) throws Exception {
-        return client.setData().forPath(path, newData.getBytes());
-    }
-
-    public Stat setListener(String path, String newData) throws Exception {
-        CuratorListener listener = (client, event) -> {
-            logger.info("set data event:{}", event.getType().name());
-        };
-        client.getCuratorListenable().addListener(listener);
-        //listener 只能监听相同thread的client事件, 跨thread或者跨process则不行,
-        // 操作必须使用inbackground()模式才能触发listener
-        return client.setData().inBackground().forPath(path, newData.getBytes());
-    }
-
-
-    public Void delete(String path) throws Exception {
-        return client.delete().forPath(path);
-    }
-
-    public void tran() throws Exception {
-        client.inTransaction()
-                .delete().forPath("/abc")
-                .and().create().forPath("/def", "def".getBytes())
-                .and().commit();
-    }
-
-    public List<String> watchedGetChildren(String path) throws Exception {
-        return client.getChildren().usingWatcher(curatorWatcher).forPath(path);
-    }
-
-    public void lock(String lockPath) throws Exception {
-        InterProcessMutex lock = new InterProcessMutex(client, lockPath);
-        if (lock.acquire(10, TimeUnit.SECONDS)) {
-            try {
-                logger.info("i get a lock");
-            } finally {
-                lock.release();
-            }
-        }
-    }
-
-    public void leader(String path) {
-        LeaderSelectorListener listener = new LeaderSelectorListenerAdapter() {
-            public void takeLeadership(CuratorFramework client) throws Exception {
-                logger.info("i'm a leader");
-            }
-        };
-
-        LeaderSelector selector = new LeaderSelector(client, path, listener);
-        selector.autoRequeue();  // not required, but this is behavior that you will probably expect
-        selector.start();
-    }
 }
