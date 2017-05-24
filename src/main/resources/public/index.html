@@ -22,7 +22,7 @@
       </div>
     </div>
     <div class="row">
-      <div class="col-md-8">
+      <div class="col-md-7">
         <div class="table-responsive">
           <table class="table table-hover">
             <thead>
@@ -44,7 +44,7 @@
           </table>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-5">
         <table class="table table-hover">
           <tr>
             <th>项</th>
@@ -52,6 +52,10 @@
           </tr>
           </thead>
           <tbody>
+          <tr>
+            <td>值</td>
+            <td>{{node.data}}</td>
+          </tr>
           <tr>
             <td>创建zxid</td>
             <td>{{node.stat.czxid}}</td>
@@ -113,7 +117,11 @@ appVue = new Vue ({
     paths:[],
     node: {
       path: '',
-      stat: {}
+      stat: {},
+      data: ''
+    },
+    editForm:{
+      newData:''
     }
   },
 
@@ -145,12 +153,11 @@ appVue = new Vue ({
     },
     listChildren: function (p) {
       this.node.stat = {};
-      if (this.search.path == '/') {
+      this.node.data = '';
+      if (this.search.path == '' || this.search.path == '/') {
         this.search.path = '/' + p;
-      } else if (this.search.path.charAt(0) == '/') {
-        this.search.path = this.search.path + '/' + p;
       } else {
-        this.search.path = '/' + p;
+        this.search.path = this.search.path + '/' + p;
       }
       $.get('/list?path=' + this.search.path, function(response){
         appVue.paths = response;
@@ -163,14 +170,28 @@ appVue = new Vue ({
         this.node.path = this.search.path + '/' + p;
       }
       $.get('/get?path=' + this.node.path, function(response){
-        appVue.node.stat = response;
+        appVue.node.stat = response.stat;
+        appVue.node.data = response.data;
       });
     },
     edit: function(p) {
 
     },
+    update: function () {
+      if (this.search.path == '' || this.search.path == '/') {
+        this.node.path = '/' + p;
+      } else {
+        this.node.path = this.search.path + '/' + p;
+      }
+
+      $.post('/update', {'path': this.node.path,'newData':this.editForm.newData});
+    },
     del: function(p) {
-      this.node.path = this.search.path + '/' + p;
+      if (this.search.path == '' || this.search.path == '/') {
+        this.node.path = '/' + p;
+      } else {
+        this.node.path = this.search.path + '/' + p;
+      }
       $.get('/del?path=' + this.node.path, function(response){
         appVue.node.stat = response;
       });

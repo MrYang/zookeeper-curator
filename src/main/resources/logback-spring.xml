@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="LAYOUT_FORMAT"
+              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%level] [%logger{40}] [%L] %msg%n"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LAYOUT_FORMAT}</pattern>
+        </encoder>
+        <!--<filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>DEBUG</level>
+        </filter>-->
+    </appender>
+
+    <property name="LOG_PATH" value="/data/soft/zk/logs"/>
+    <property name="APP_NAME" value="zk"/>
+    <property name="ROLLING_FILE_SUFFIX" value=".%d{yyyy-MM-dd}-%i"/>
+    <property name="LOG_SAVE_DAY" value="10"/>
+    <property name="MAX_FILE_SIZE" value="20MB"/>
+
+    <appender name="metricFileAppend" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-info.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <FileNamePattern>${LOG_PATH}/${APP_NAME}-metric.log${ROLLING_FILE_SUFFIX}</FileNamePattern>
+            <MaxHistory>${LOG_SAVE_DAY}</MaxHistory>
+            <TimeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            </TimeBasedFileNamingAndTriggeringPolicy>
+        </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${LAYOUT_FORMAT}</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="metric" level="INFO" addtivity="false">
+        <appender-ref ref="metricFileAppend"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+</configuration>

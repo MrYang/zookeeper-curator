@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -65,24 +67,34 @@ public class UIController {
         return paths;
     }
 
+    @Timed
     @ResponseBody
     @RequestMapping("/get")
-    public Stat get(String path) throws Exception {
+    public Map<String, Object> get(String path) throws Exception {
         NodeCache nodeCache = new NodeCache(client, path);
         nodeCache.start(true);
-        return nodeCache.getCurrentData().getStat();
+        byte[] d = nodeCache.getCurrentData().getData();
+        String data = d == null ? "" : new String(nodeCache.getCurrentData().getData());
+        Stat stat = nodeCache.getCurrentData().getStat();
+        Map<String, Object> map = new HashMap<>();
+        map.put("data", data);
+        map.put("stat", stat);
+        return map;
     }
 
-    public String create(String path, String data) throws Exception {
-        return client.create().forPath(path, data.getBytes());
-    }
+    @Timed
+    @ResponseBody
+    @RequestMapping("create")
+    public String create(String path, String data, int type) throws Exception {
+        switch (type) {
+            case 1:
+                return client.create().withMode(CreateMode.EPHEMERAL).forPath(path, data.getBytes());
+            case 2:
+                return client.create().withMode(CreateMode.EPHEMERAL_SEQUENTIAL).forPath(path, data.getBytes());
+            default:
+                return client.create().forPath(path, data.getBytes());
+        }
 
-    public String createEphemeral(String path, String data) throws Exception {
-        return client.create().withMode(CreateMode.EPHEMERAL).forPath(path, data.getBytes());
-    }
-
-    public String createEphemeralSequential(String path, String data) throws Exception {
-        return client.create().withProtection().withMode(CreateMode.EPHEMERAL_SEQUENTIAL).forPath(path, data.getBytes());
     }
 
     /*
@@ -107,6 +119,10 @@ public class UIController {
         dataLength. 节点数据的字节数；
         numChildren. 子节点个数；
      */
+
+    @Timed
+    @ResponseBody
+    @RequestMapping("/update")
     public Stat set(String path, String newData) throws Exception {
         return client.setData().forPath(path, newData.getBytes());
     }
@@ -121,6 +137,7 @@ public class UIController {
         return client.setData().inBackground().forPath(path, newData.getBytes());
     }
 
+    @Timed
     @ResponseBody
     @RequestMapping("/del")
     public Void delete(String path) throws Exception {
