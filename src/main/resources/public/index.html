@@ -99,11 +99,22 @@ appVue = new Vue ({
 
 $(function () {
   $.get('/tree').done(function (response) {
-    $('#tree').treeview({data: response});
+    $('#tree').treeview({
+      data: response,
+      color: 'blue'
+    });
     $('#tree').treeview('collapseAll', { silent: true });
     $('#tree').on('nodeSelected', function(e, node){
-      $.get('/get?path=' + node.fullPath, function(response){
+      $.get('/get?path=' + node.fullPath).done(function(response){
         appVue.node.stat = response.stat;
+        var ctime = appVue.node.stat.ctime;
+        if (ctime != '' && ctime != 0){
+          appVue.node.stat.ctime = new Date(ctime).toLocaleString();
+        }
+        var mtime = appVue.node.stat.mtime;
+        if (mtime != '' && mtime != 0){
+          appVue.node.stat.mtime = new Date(mtime).toLocaleString();
+        }
         appVue.node.data = response.data;
       });
     });
