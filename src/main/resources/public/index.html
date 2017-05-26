@@ -3,48 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <link href="/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/bootstrap-treeview.min.css" rel="stylesheet">
   <script type="text/javascript" src="/vue.min.js"></script>
   <script type="text/javascript" src="/jquery.min.js"></script>
   <script type="text/javascript" src="/bootstrap/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="/bootstrap-treeview.min.js"></script>
   <title>zookeeper-ui</title>
 </head>
 <body>
   <div id="vue" class="container">
     <div class="row">
       <div class="col-md-6">
-        <div class="input-group">
-          <input type="text" class="form-control" v-model="search.path" readonly>
-          <span class="input-group-btn">
-            <button class="btn btn-default" type="button" @click="goBack">上一级</button>
-            <button class="btn btn-default" type="button" @click="goRoot">回到根节点</button>
-          </span>
-        </div>
+        <div id="tree"></div>
       </div>
-    </div>
-    <div class="row">
-      <div class="col-md-7">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-            <tr>
-              <th>节点</th>
-              <th>操作</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="p in paths">
-              <td><span @click="listChildren(p)" style="cursor: pointer">{{p}}</span></td>
-              <td>
-                <button class="btn btn-default btn-xs" @click="get(p)">查看</button>
-                <button class="btn btn-default btn-xs" @click="edit(p)">编辑</button>
-                <button class="btn btn-default btn-xs" @click="del(p)">删除</button>
-              </td>
-            </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div class="col-md-5">
+      <div class="col-md-6">
         <table class="table table-hover">
           <tr>
             <th>项</th>
@@ -111,92 +83,31 @@
 appVue = new Vue ({
   el: '#vue',
   data: {
-    search:{
-      path:''
-    },
-    paths:[],
     node: {
-      path: '',
       stat: {},
       data: ''
-    },
-    editForm:{
-      newData:''
     }
   },
 
   ready: function(){
-    this.list();
   },
 
   methods: {
-    list: function(){
-      var p = this.search.path;
-      $.get('/list?path=' + p, function(response){
-        appVue.paths = response;
-      });
-    },
-    goBack: function () {
-      if (this.search.path == '' || this.search.path == '/') {
-        this.search.path = '/';
-      } else {
-        this.search.path = this.search.path.substring(0, this.search.path.lastIndexOf('/'))
-        if (this.search.path == '') {
-          this.search.path = '/';
-        }
-      }
-      this.list();
-    },
-    goRoot: function () {
-      this.search.path = '/';
-      this.list();
-    },
-    listChildren: function (p) {
-      this.node.stat = {};
-      this.node.data = '';
-      if (this.search.path == '' || this.search.path == '/') {
-        this.search.path = '/' + p;
-      } else {
-        this.search.path = this.search.path + '/' + p;
-      }
-      $.get('/list?path=' + this.search.path, function(response){
-        appVue.paths = response;
-      });
-    },
-    get: function(p) {
-      if (this.search.path == '' || this.search.path == '/') {
-        this.node.path = '/' + p;
-      } else {
-        this.node.path = this.search.path + '/' + p;
-      }
-      $.get('/get?path=' + this.node.path, function(response){
+
+  }
+});
+
+$(function () {
+  $.get('/tree').done(function (response) {
+    $('#tree').treeview({data: response});
+    $('#tree').treeview('collapseAll', { silent: true });
+    $('#tree').on('nodeSelected', function(e, node){
+      $.get('/get?path=' + node.fullPath, function(response){
         appVue.node.stat = response.stat;
         appVue.node.data = response.data;
       });
-    },
-    edit: function(p) {
-
-    },
-    update: function () {
-      if (this.search.path == '' || this.search.path == '/') {
-        this.node.path = '/' + p;
-      } else {
-        this.node.path = this.search.path + '/' + p;
-      }
-
-      $.post('/update', {'path': this.node.path,'newData':this.editForm.newData});
-    },
-    del: function(p) {
-      if (this.search.path == '' || this.search.path == '/') {
-        this.node.path = '/' + p;
-      } else {
-        this.node.path = this.search.path + '/' + p;
-      }
-      $.get('/del?path=' + this.node.path, function(response){
-        appVue.node.stat = response;
-      });
-    }
-  }
-})
+    });
+  });
+});
 </script>
 </html>

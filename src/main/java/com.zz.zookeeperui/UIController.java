@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,15 +57,34 @@ public class UIController {
         return paths;
     }
 
-    private List<String> recursion(String path, List<String> paths) throws Exception {
-        List<String> addPaths = client.getChildren().forPath(path);
+    @ResponseBody
+    @RequestMapping("/tree")
+    public List<TreeNode> tree() throws Exception {
+        List<TreeNode> treeNodes = new ArrayList<>();
+        recursion("/", treeNodes);
+        return treeNodes;
+    }
 
-        addPaths.forEach(p -> paths.add(path.equals("/") ? "/" + p : path + "/" + p));
-        for (String p : addPaths) {
-            String ap = path.equals("/") ? "/" + p : path + "/" + p;
-            recursion(ap, paths);
+    private List<TreeNode> recursion(String path, List<TreeNode> nodes) throws Exception {
+        List<String> addPaths = client.getChildren().forPath(path);
+        if (addPaths.size() == 0) {
+            return new ArrayList<>();
         }
-        return paths;
+
+        for (String p : addPaths) {
+            TreeNode treeNode = new TreeNode();
+            String text = path.equals("/") ? "/" + p : path + "/" + p;
+            List<TreeNode> newList = new ArrayList<>();
+            recursion(text, newList);
+            treeNode.setText(p);
+            treeNode.setFullPath(text);
+            if (!newList.isEmpty()) {
+                treeNode.setNodes(newList);
+            }
+            nodes.add(treeNode);
+        }
+
+        return nodes;
     }
 
     @Timed
